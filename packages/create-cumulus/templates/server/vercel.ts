@@ -1,4 +1,7 @@
-import type { VercelConfig } from '@vercel/config/v1';
+type VercelConfig = {
+  framework: 'nextjs';
+  crons: Array<{ path: string; schedule: string }>;
+};
 
 // Explicitly set the framework so Vercel uses the Next.js build output.
 // Previously this was `framework: null` (Nitro era) — leaving it unset keeps

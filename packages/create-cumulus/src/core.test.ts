@@ -64,12 +64,62 @@ describe('parseCliArgs', () => {
       /invalid --template/,
     );
   });
+
+  it('rejects unknown flags instead of silently ignoring them', () => {
+    expect(() => parseCliArgs(['demo', '--cwd', '/tmp/out'])).toThrow(
+      /unknown option --cwd/,
+    );
+  });
 });
 
 describe('naming', () => {
   it('normalizes project names into package names', () => {
     expect(packageNameFromProject('Acme Agent App')).toBe('acme-agent-app');
     expect(packageNameFromProject('@scope/demo')).toBe('demo');
+  });
+
+  it('uses --company as the real project name when the positional name is a placeholder', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'create-cumulus-'));
+    const parsed = parseCliArgs([
+      'my-acme',
+      '--company',
+      'Launch Labs',
+      '--no-install',
+      '--no-git',
+    ]);
+    const createOptions = await resolveCreateOptions(parsed, root);
+
+    expect(createOptions.projectName).toBe('launch-labs');
+    expect(createOptions.packageName).toBe('launch-labs');
+    expect(createOptions.companyName).toBe('Launch Labs');
+    expect(createOptions.targetDir).toBe(join(root, 'launch-labs'));
+  });
+
+  it('preserves explicit non-placeholder directories when --company is different', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'create-cumulus-'));
+    const parsed = parseCliArgs([
+      'custom-relay-dir',
+      '--company',
+      'Launch Labs',
+      '--no-install',
+      '--no-git',
+    ]);
+    const createOptions = await resolveCreateOptions(parsed, root);
+
+    expect(createOptions.projectName).toBe('custom-relay-dir');
+    expect(createOptions.packageName).toBe('custom-relay-dir');
+    expect(createOptions.companyName).toBe('Launch Labs');
+    expect(createOptions.targetDir).toBe(join(root, 'custom-relay-dir'));
+  });
+
+  it('derives the folder and package from --company when no positional name is provided', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'create-cumulus-'));
+    const parsed = parseCliArgs(['--company', 'Launch Labs', '--no-install', '--no-git']);
+    const createOptions = await resolveCreateOptions(parsed, root);
+
+    expect(createOptions.projectName).toBe('launch-labs');
+    expect(createOptions.packageName).toBe('launch-labs');
+    expect(createOptions.targetDir).toBe(join(root, 'launch-labs'));
   });
 });
 
@@ -92,6 +142,13 @@ describe('buildFiles', () => {
         expect(files.get('app/api/relay-login/route.ts')).toContain('jwtVerify');
         expect(files.get('app/api/agent-signup/route.ts')).toContain('relay.webhook');
         expect(files.get('app/api/actions/route.ts')).toContain('ActionPayload');
+        expect(files.get('app/api/actions/route.ts')).toContain('invalid_json');
+        expect(files.get('app/api/actions/route.ts')).toContain(
+          'actions_secret_not_configured',
+        );
+        expect(files.get('src/relay/webhook.ts')).toContain(
+          'webhook_secret_not_configured',
+        );
 
         if (agentAuth === 'self-hosted') {
           expect(files.has('app/v1/[[...path]]/route.ts')).toBe(true);
@@ -124,8 +181,30 @@ describe('buildFiles', () => {
       .filter((value): value is string => typeof value === 'string')
       .join('\n---file---\n');
     expect(allContent).toContain('Acme Inc');
+    expect(files.get('app/layout.tsx')).toContain('Acme Inc');
+    expect(files.get('app/legal/privacy/page.tsx')).toContain(
+      'Operator: Acme Inc',
+    );
+    expect(files.get('app/legal/terms/page.tsx')).toContain(
+      'operated by Acme Inc',
+    );
     expect(allContent).not.toContain('__COMPANY_NAME__');
     expect(allContent).not.toContain('__PROJECT_NAME__');
+  });
+
+  it('does not ship official Cumulus legal contacts in generated public pages', () => {
+    const files = buildFiles(options('full', 'self-hosted'));
+    const publicPages = [
+      files.get('app/legal/privacy/page.tsx'),
+      files.get('app/legal/terms/page.tsx'),
+      files.get('app/security/page.tsx'),
+      files.get('app/trust/page.tsx'),
+    ].join('\n');
+
+    expect(publicPages).not.toContain('5757 Woodway Drive');
+    expect(publicPages).not.toContain('security@cumulush.com');
+    expect(publicPages).not.toContain('privacy@cumulush.com');
+    expect(publicPages).not.toContain('generated app templates are MIT-licensed');
   });
 
   it('includes binary brand font assets', () => {

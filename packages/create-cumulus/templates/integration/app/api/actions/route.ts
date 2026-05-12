@@ -33,22 +33,54 @@ function timingSafeEqual(a: string, b: string): boolean {
   return result === 0;
 }
 
-async function verify(body: string, signature: string | null): Promise<boolean> {
+function hasUsableSecret(secret: string): boolean {
+  return secret.trim().length >= 16 && secret !== 'dev-only-replace-me';
+}
+
+function actionsSecret(): string | null {
   const secret = process.env.RELAY_ACTIONS_SECRET ?? 'dev-only-replace-me';
-  if (!signature) return false;
+  if (process.env.NODE_ENV === 'production' && !hasUsableSecret(secret)) return null;
+  return secret;
+}
+
+async function verify(
+  body: string,
+  signature: string | null,
+): Promise<'ok' | 'missing_secret' | 'invalid_signature'> {
+  const secret = actionsSecret();
+  if (!secret) return 'missing_secret';
+  if (!signature) return 'invalid_signature';
   const provided = signature.startsWith('sha256=') ? signature.slice(7) : signature;
-  if (!/^[0-9a-f]+$/i.test(provided)) return false;
+  if (!/^[0-9a-f]+$/i.test(provided)) return 'invalid_signature';
   const expected = await hmacHex(secret, body);
-  return timingSafeEqual(provided.toLowerCase(), expected);
+  return timingSafeEqual(provided.toLowerCase(), expected) ? 'ok' : 'invalid_signature';
 }
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
-  if (!(await verify(rawBody, request.headers.get('x-relay-signature')))) {
+  const signatureStatus = await verify(rawBody, request.headers.get('x-relay-signature'));
+  if (signatureStatus === 'missing_secret') {
+    return json(500, { ok: false, error: 'actions_secret_not_configured' });
+  }
+  if (signatureStatus !== 'ok') {
     return json(401, { ok: false, error: 'invalid_signature' });
   }
 
-  const payload = JSON.parse(rawBody) as ActionPayload;
+  let payload: Partial<ActionPayload>;
+  try {
+    payload = JSON.parse(rawBody) as Partial<ActionPayload>;
+  } catch {
+    return json(400, { ok: false, error: 'invalid_json' });
+  }
+  if (
+    typeof payload.actionSlug !== 'string' ||
+    typeof payload.externalUserId !== 'string' ||
+    typeof payload.input !== 'object' ||
+    payload.input === null
+  ) {
+    return json(400, { ok: false, error: 'invalid_action_payload' });
+  }
+
   if (payload.actionSlug === 'echo') {
     return json(200, { ok: true, output: payload.input ?? {} });
   }

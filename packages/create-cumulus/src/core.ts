@@ -18,6 +18,16 @@ import {
 } from './templates.js';
 
 const publicTemplateChoices = ['full', 'outer', 'inner', 'agent-auth'] as const;
+const placeholderProjectNames = new Set(['my-acme', 'my-cumulus-app']);
+const supportedFlags = new Set([
+  'help',
+  'install',
+  'git',
+  'template',
+  'agent-auth',
+  'company',
+  'package-manager',
+]);
 
 export interface ParsedArgs {
   projectName?: string;
@@ -115,6 +125,11 @@ function normalizeTemplateName(value: string): TemplateName | undefined {
 
 export function parseCliArgs(argv: string[]): ParsedArgs {
   const raw = rawParse(argv);
+  const unknownFlags = Object.keys(raw.flags).filter((flag) => !supportedFlags.has(flag));
+  if (unknownFlags.length > 0) {
+    throw new Error(`unknown option --${unknownFlags[0]}`);
+  }
+
   const templateFlag = readStringFlag(raw.flags, 'template');
   const agentAuthFlag = readStringFlag(raw.flags, 'agent-auth');
   const packageManagerFlag = readStringFlag(raw.flags, 'package-manager');
@@ -164,6 +179,10 @@ export function packageNameFromProject(projectName: string): string {
     .replace(/^-+|-+$/g, '');
   if (!base) return 'cumulus-app';
   return base;
+}
+
+function isPlaceholderProjectName(projectName: string): boolean {
+  return placeholderProjectNames.has(packageNameFromProject(projectName));
 }
 
 export function companyFromProject(projectName: string): string {
@@ -251,16 +270,22 @@ export async function resolveCreateOptions(
   let packageManager = parsed.packageManager;
   let install = parsed.install;
   let git = parsed.git;
+  let companyNameWasProvided = Boolean(companyName);
 
   if (interactive) {
     const rl = createInterface({ input, output });
     try {
-      projectName = projectName ?? (await promptString(rl, 'Project directory', 'my-cumulus-app'));
+      if (!projectName && !companyName) {
+        companyName = await promptString(rl, 'Project name', 'Acme Inc');
+        companyNameWasProvided = true;
+      }
       template = template ?? (await promptTemplate(rl));
       agentAuth =
         agentAuth ?? (await promptChoice(rl, 'Agent auth', agentAuthModes, 'hosted'));
-      companyName =
-        companyName ?? (await promptString(rl, 'Company name', companyFromProject(projectName)));
+      if (projectName && !companyName) {
+        companyName = await promptString(rl, 'Company name', companyFromProject(projectName));
+        companyNameWasProvided = true;
+      }
       packageManager =
         packageManager ??
         (await promptChoice(rl, 'Package manager', packageManagers, detectPackageManager()));
@@ -269,6 +294,17 @@ export async function resolveCreateOptions(
     } finally {
       rl.close();
     }
+  }
+
+  if (!projectName && companyName) {
+    projectName = packageNameFromProject(companyName);
+  } else if (
+    parsed.projectName &&
+    companyName &&
+    companyNameWasProvided &&
+    isPlaceholderProjectName(parsed.projectName)
+  ) {
+    projectName = packageNameFromProject(companyName);
   }
 
   projectName = projectName ?? 'my-cumulus-app';

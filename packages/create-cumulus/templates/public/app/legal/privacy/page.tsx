@@ -41,15 +41,16 @@ export default function PrivacyPage() {
           marginBottom: 48,
         }}
       >
-        Effective {effective}. Operator: Cumulus ({`hi@cumulush.com`}).
+        Effective {effective}. Operator: __COMPANY_NAME__.
       </p>
 
       <Section title="Who we are">
-        Relay is operated by Cumulus ({`hi@cumulush.com`}, 5757 Woodway Drive,
-        Houston TX 77057, US). Relay provides an HTTP API and MCP server that
-        AI agents use to sign their users up to third-party products on behalf
-        of their end-users. We are a data processor for integrator tenants and
-        a data controller for our own account records.
+        This Relay deployment is operated by __COMPANY_NAME__. Relay provides
+        an HTTP API and MCP server that AI agents use to sign their users up to
+        third-party products on behalf of their end-users. We are a data
+        processor for integrator tenants and a data controller for our own
+        account records. Replace this section with your legal entity,
+        jurisdiction, and contact details before production use.
       </Section>
 
       <Section title="What we collect">
@@ -123,7 +124,7 @@ export default function PrivacyPage() {
       <Section title="Your rights">
         Subject to applicable law (GDPR, CCPA, and similar), you can request
         access, correction, deletion, export, or restriction of processing of
-        your personal data. Email {`privacy@cumulush.com`} from the address
+        your personal data. Email {`privacy@example.com`} from the address
         associated with your account. We aim to respond within 30 days.
       </Section>
 
@@ -140,7 +141,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="Contact">
-        {`privacy@cumulush.com`} for privacy requests · {`security@cumulush.com`} for security issues · {`hi@cumulush.com`} for general inquiries.
+        {`privacy@example.com`} for privacy requests · {`security@example.com`} for security issues · replace these before production use.
       </Section>
 
       <footer

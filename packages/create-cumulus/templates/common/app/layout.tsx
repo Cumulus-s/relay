@@ -5,22 +5,22 @@ import './globals.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://relay.cumulush.com'),
-  title: 'Relay — signup endpoint for API companies whose users arrive via AI agents',
+  title: '__COMPANY_NAME__ — Relay agent onboarding',
   description:
-    'Let AI coding agents sign your users up to your API. Drop a 20-line webhook into your existing auth. You pay only when the signup makes a real first call.',
+    'Relay-branded agent authentication, signup, and action surfaces for __COMPANY_NAME__.',
   openGraph: {
     type: 'website',
-    siteName: 'Relay',
-    title: 'Relay — signup endpoint for API companies whose users arrive via AI agents',
+    siteName: '__COMPANY_NAME__',
+    title: '__COMPANY_NAME__ — Relay agent onboarding',
     description:
-      'When Cursor, Claude Code, or a custom agent needs an API key from you, Relay handles signup, email verification, and key handoff. You pay per delivered signup.',
+      'Relay-branded agent authentication, signup, and action surfaces for __COMPANY_NAME__.',
     url: '/',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Relay — signup endpoint for API companies whose users arrive via AI agents',
+    title: '__COMPANY_NAME__ — Relay agent onboarding',
     description:
-      'AI coding agents sign your users up. Drop a webhook. Pay per delivered signup.',
+      'Relay-branded agent authentication, signup, and action surfaces for __COMPANY_NAME__.',
   },
 };
 

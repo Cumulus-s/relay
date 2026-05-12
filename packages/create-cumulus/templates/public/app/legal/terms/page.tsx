@@ -46,7 +46,7 @@ export default function TermsPage() {
       <Section title="1. Agreement">
         These Terms of Service (the &ldquo;Terms&rdquo;) govern your use of the
         Relay API, dashboard, MCP server, SDK, and CLI (the &ldquo;Service&rdquo;),
-        operated by Cumulus (&ldquo;we,&rdquo; &ldquo;us&rdquo;). By creating an
+        operated by __COMPANY_NAME__ (&ldquo;we,&rdquo; &ldquo;us&rdquo;). By creating an
         account or signing a subscription you agree to these Terms.
       </Section>
 
@@ -73,7 +73,7 @@ export default function TermsPage() {
           <li>Use the Service for unlawful activity or to harass, threaten, or defraud.</li>
           <li>Circumvent rate limits, quotas, or authentication controls.</li>
           <li>Reverse-engineer, decompile, or attempt to derive source code (except where permitted by law).</li>
-          <li>Use the Service to build a competing product that resells Relay functionality.</li>
+          <li>Misrepresent this deployment as the official hosted Cumulus Cloud service.</li>
           <li>
             Submit content that infringes a third party&apos;s intellectual
             property, privacy, or publicity rights.
@@ -143,7 +143,7 @@ export default function TermsPage() {
       </Section>
 
       <Section title="14. Contact">
-        {`hi@cumulush.com`} · 5757 Woodway Drive, Houston TX 77057, US.
+        __COMPANY_NAME__ · replace this with your legal contact and mailing address.
       </Section>
 
       <footer

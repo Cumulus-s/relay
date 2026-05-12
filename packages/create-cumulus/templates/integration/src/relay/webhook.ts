@@ -93,10 +93,18 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
+function hasUsableSecret(secret: string): boolean {
+  return secret.trim().length >= 16 && secret !== 'dev-only-replace-me';
+}
+
 function webhook(options: WebhookOptions) {
   return async function relayWebhook(req: Request): Promise<Response> {
     if (req.method !== 'POST') {
       return jsonResponse(405, { error: 'method_not_allowed' });
+    }
+
+    if (process.env.NODE_ENV === 'production' && !hasUsableSecret(options.secret)) {
+      return jsonResponse(500, { error: 'webhook_secret_not_configured' });
     }
 
     const rawBody = await req.text();
@@ -162,7 +170,9 @@ function webhook(options: WebhookOptions) {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return jsonResponse(500, { error: message });
+      return jsonResponse(500, {
+        error: process.env.NODE_ENV === 'production' ? 'handler_failed' : message,
+      });
     }
   };
 }

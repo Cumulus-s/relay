@@ -143,7 +143,7 @@ export default function TrustPage() {
       </Section>
 
       <Section title="Security contact">
-        Report vulnerabilities to {`security@cumulush.com`}. Please do not
+        Report vulnerabilities to {`security@example.com`}. Please do not
         include exploit details in the subject line. PGP key available on
         request; see the repo&apos;s{' '}
         <Link href="https://github.com/Cumulus-s/relay/blob/main/SECURITY.md">

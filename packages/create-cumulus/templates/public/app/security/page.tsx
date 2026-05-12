@@ -50,14 +50,15 @@ export default function SecurityPage() {
         secrets, pending-account credentials) is encrypted at the application
         layer with <b>AES-256-GCM</b>. Each ciphertext carries a 12-byte
         random nonce and a 16-byte authentication tag. The master key is a
-        32-byte secret stored in Vercel environment variables and never logged
-        or committed. A {`key_version`} column on every encrypted table makes
+        32-byte secret stored in deployment environment variables and never
+        logged or committed. A {`key_version`} column on every encrypted table makes
         rotation to a v2 master key possible without a migration window.
       </Section>
 
       <Section title="Encryption in transit">
-        TLS 1.2+ on every public endpoint. HTTP-to-HTTPS redirects handled by
-        Vercel&apos;s edge. HSTS with a year-long max-age and preload.
+        TLS 1.2+ should terminate at your hosting edge or reverse proxy for
+        every public endpoint. Enable HTTP-to-HTTPS redirects and HSTS when
+        your production domain is stable.
       </Section>
 
       <Section title="Authentication">
@@ -128,7 +129,7 @@ export default function SecurityPage() {
       </Section>
 
       <Section title="Vulnerability reporting">
-        Report security issues to {`security@cumulush.com`} (PGP key on
+        Report security issues to {`security@example.com`} (PGP key on
         request). We acknowledge within 48 hours and patch critical issues
         within 7 days. See the full policy in <code>SECURITY.md</code> on
         the repo.
@@ -137,17 +138,16 @@ export default function SecurityPage() {
       <Section title="Compliance roadmap">
         We are targeting <b>SOC 2 Type I</b> in Q4 2026 with a Type II report
         to follow the subsequent audit period. GDPR and CCPA data-subject
-        rights are honored today; contact {`privacy@cumulush.com`}. A Data
+        rights are honored today; contact {`privacy@example.com`}. A Data
         Processing Agreement (DPA) is available to any paying integrator on
         request.
       </Section>
 
       <Section title="Source-availability">
-        Relay&apos;s service code is open source under AGPL-3.0. The Cumulus
-        creator package and generated app templates are MIT-licensed so
-        integrators can audit, fork, or pin the code that handles webhooks,
-        signs requests, and brokers the Relay handshake on their side. Teams
-        can use hosted Relay or run their own Relay deployment.
+        Relay&apos;s full app/server code is open source under AGPL-3.0.
+        Hosted SDK-only starter code can remain MIT-licensed. Full, inner, and
+        self-hosted generated projects include the Relay app/server and default
+        to AGPL-3.0-only so teams can audit, fork, and run their own deployment.
       </Section>
 
       <footer

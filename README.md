@@ -40,6 +40,10 @@ Agent auth modes:
 | `hosted` | Generated app connects to hosted Cumulus Cloud. |
 | `self-hosted` | Generated app includes a local Relay-style API/MCP starter. |
 
+`my-acme` is a placeholder. If you provide `--company "Acme Inc"`, the
+generated folder and package name are derived from the company name. Use any
+non-placeholder first argument when you need an exact folder name.
+
 ## What Is In This Repo
 
 This repository is the full Cumulus Relay service:
@@ -161,8 +165,10 @@ package-level license files.
 ## License
 
 - Full Cumulus Relay app and server: **GNU AGPLv3**. See [LICENSE](LICENSE).
-- Creator, templates, SDK helpers, and examples where separately marked:
-  **MIT**.
+- Creator, SDK helpers, examples, and small hosted SDK-only templates where
+  separately marked: **MIT**.
+- Generated full, inner, and self-hosted templates include the Relay app/server
+  and default to **AGPL-3.0-only**.
 - Cumulus and Relay names, marks, and logos are governed by
   [TRADEMARKS.md](TRADEMARKS.md).
 - Commercial licensing is available. See [COMMERCIAL.md](COMMERCIAL.md).
@@ -170,3 +176,7 @@ package-level license files.
 ## Security
 
 Report vulnerabilities privately. See [SECURITY.md](SECURITY.md).
+
+For architecture-level risk review, see
+[docs/security-threat-model.md](docs/security-threat-model.md) and
+[docs/security-best-practices-report.md](docs/security-best-practices-report.md).

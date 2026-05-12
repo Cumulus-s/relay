@@ -72,6 +72,11 @@ create-cumulus <project-name>
 If flags are missing in a TTY, the CLI asks for them. In non-interactive
 mode it defaults to `full`, `hosted`, `npm`, no install, and no git init.
 
+`my-acme` and `my-cumulus-app` are treated as placeholder names. If you pass
+one of those and provide `--company "Acme Inc"`, the generated folder and
+package name are derived from the company name. Pass any other first argument
+when you need an exact folder name.
+
 ## Licenses
 
 The `create-cumulus` package is MIT-licensed.

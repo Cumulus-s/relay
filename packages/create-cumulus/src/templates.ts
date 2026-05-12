@@ -201,10 +201,9 @@ function relayDevDependencies(): Record<string, string> {
     '@types/node': '^25.6.0',
     '@types/react': '^19.2.14',
     '@types/react-dom': '^19.2.3',
-    '@vercel/config': '^0.2.0',
     'drizzle-kit': '^0.31.10',
     'pino-pretty': '^13.1.3',
-    postcss: '^8.5.12',
+    postcss: '^8.5.14',
     tailwindcss: '^4.2.2',
     tsx: '^4.21.0',
     typescript: '^5.9.3',
@@ -218,7 +217,7 @@ function hostedDevDependencies(): Record<string, string> {
     '@types/node': '^25.6.0',
     '@types/react': '^19.2.14',
     '@types/react-dom': '^19.2.3',
-    postcss: '^8.5.12',
+    postcss: '^8.5.14',
     tailwindcss: '^4.2.2',
     typescript: '^5.9.3',
     vitest: '^4.1.4',
@@ -247,6 +246,9 @@ function packageJson(o: RenderOptions): string {
     },
     dependencies: localRelay ? relayDependencies() : hostedDependencies(),
     devDependencies: localRelay ? relayDevDependencies() : hostedDevDependencies(),
+    overrides: {
+      postcss: '^8.5.14',
+    },
     license: generatedLicense(o),
   })}\n`;
 }

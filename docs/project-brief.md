@@ -102,6 +102,7 @@ Postgres database and set `DATABASE_URL`.
 
 ## Licensing
 
-The Relay server is AGPL-3.0-only. The npm integration packages and generated
-creator templates are MIT-licensed so integrators can use them in commercial
-apps without adopting the server license.
+The Relay server is AGPL-3.0-only. The npm integration packages and small
+hosted SDK-only starter templates are MIT-licensed. Generated full, inner, and
+self-hosted templates include the Relay app/server and default to
+AGPL-3.0-only.
