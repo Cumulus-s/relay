@@ -1,7 +1,7 @@
 {
   "name": "create-cumulus",
-  "version": "0.2.0",
-  "description": "Create a Cumulus app with Relay-ready agent authentication, signup, actions, dashboards, and optional self-hosted API/MCP.",
+  "version": "0.3.0",
+  "description": "Create a Cumulus app with Relay-ready agent authentication, signup, actions, dashboards, Cumulus DB, and optional self-hosted API/MCP.",
   "type": "module",
   "bin": {
     "create-cumulus": "dist/index.js"

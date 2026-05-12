@@ -34,6 +34,8 @@ workflows/                  Durable signup workflows
 migrations/                 Database migrations
 scripts/                    Maintenance, smoke, and migration helpers
 packages/create-cumulus/    npm creator package
+packages/create-cumulus/templates/cumulus-db/
+                            vendored local Cumulus DB service template
 packages/server-sdk/        webhook helper source
 packages/cli/               relay CLI source
 packages/track-sdk/         activation tracking helper
@@ -49,6 +51,15 @@ docs/                       public operator and architecture docs
 - Update docs when behavior, env vars, APIs, or setup change.
 - Do not include secrets, private strategy notes, local worktree notes, personal
   filesystem paths, or generated `.env` files.
+
+## Cumulus DB Templates
+
+`packages/create-cumulus/templates/cumulus-db` is copied from the public
+Cumulus DB service. Preserve its AGPL-3.0-only license files, NOTICE file,
+tests, and smoke script when refreshing it.
+
+Generated app code must talk to Cumulus DB through HTTP/token APIs. Do not
+import `apps/cumulus-db` source into MIT generated app code.
 
 ## Migrations
 

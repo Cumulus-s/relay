@@ -6,15 +6,20 @@ import { stdin as input, stdout as output } from 'node:process';
 import {
   agentAuthModes,
   buildFiles,
+  cumulusDbModes,
+  defaultCumulusDbMode,
   isAgentAuthMode,
+  isCumulusDbMode,
   isPackageManager,
   isTemplateName,
   packageManagers,
   type AgentAuthMode,
+  type CumulusDbMode,
   type FileContent,
   type PackageManager,
   type RenderOptions,
   type TemplateName,
+  usesLocalCumulusDb,
 } from './templates.js';
 
 const publicTemplateChoices = ['full', 'outer', 'inner', 'agent-auth'] as const;
@@ -25,6 +30,7 @@ const supportedFlags = new Set([
   'git',
   'template',
   'agent-auth',
+  'cumulus-db',
   'company',
   'package-manager',
 ]);
@@ -33,6 +39,7 @@ export interface ParsedArgs {
   projectName?: string;
   template?: TemplateName;
   agentAuth?: AgentAuthMode;
+  cumulusDb?: CumulusDbMode;
   companyName?: string;
   packageManager?: PackageManager;
   install?: boolean;
@@ -132,9 +139,11 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
 
   const templateFlag = readStringFlag(raw.flags, 'template');
   const agentAuthFlag = readStringFlag(raw.flags, 'agent-auth');
+  const cumulusDbFlag = readStringFlag(raw.flags, 'cumulus-db');
   const packageManagerFlag = readStringFlag(raw.flags, 'package-manager');
   let template: TemplateName | undefined;
   let agentAuth: AgentAuthMode | undefined;
+  let cumulusDb: CumulusDbMode | undefined;
   let packageManager: PackageManager | undefined;
 
   if (templateFlag) {
@@ -152,6 +161,12 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
     }
     agentAuth = agentAuthFlag;
   }
+  if (cumulusDbFlag) {
+    if (!isCumulusDbMode(cumulusDbFlag)) {
+      throw new Error(`invalid --cumulus-db: ${cumulusDbFlag}. Use cloud, local, or both.`);
+    }
+    cumulusDb = cumulusDbFlag;
+  }
   if (packageManagerFlag) {
     if (!isPackageManager(packageManagerFlag)) {
       throw new Error(`invalid --package-manager: ${packageManagerFlag}`);
@@ -163,6 +178,7 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
     projectName: raw.positional[0],
     template,
     agentAuth,
+    cumulusDb,
     companyName: readStringFlag(raw.flags, 'company'),
     packageManager,
     install: typeof raw.flags.install === 'boolean' ? raw.flags.install : undefined,
@@ -266,6 +282,7 @@ export async function resolveCreateOptions(
   let projectName = parsed.projectName;
   let template = parsed.template;
   let agentAuth = parsed.agentAuth;
+  let cumulusDb = parsed.cumulusDb;
   let companyName = parsed.companyName;
   let packageManager = parsed.packageManager;
   let install = parsed.install;
@@ -282,6 +299,14 @@ export async function resolveCreateOptions(
       template = template ?? (await promptTemplate(rl));
       agentAuth =
         agentAuth ?? (await promptChoice(rl, 'Agent auth', agentAuthModes, 'hosted'));
+      cumulusDb =
+        cumulusDb ??
+        (await promptChoice(
+          rl,
+          'Cumulus DB',
+          cumulusDbModes,
+          defaultCumulusDbMode(template ?? 'full'),
+        ));
       if (projectName && !companyName) {
         companyName = await promptString(rl, 'Company name', companyFromProject(projectName));
         companyNameWasProvided = true;
@@ -310,6 +335,7 @@ export async function resolveCreateOptions(
   projectName = projectName ?? 'my-cumulus-app';
   template = template ?? 'full';
   agentAuth = agentAuth ?? 'hosted';
+  cumulusDb = cumulusDb ?? defaultCumulusDbMode(template);
   companyName = companyName ?? companyFromProject(projectName);
   packageManager = packageManager ?? detectPackageManager();
   install = install ?? false;
@@ -324,6 +350,7 @@ export async function resolveCreateOptions(
     companyName,
     template,
     agentAuth,
+    cumulusDb,
     packageManager,
     targetDir,
     install,
@@ -401,6 +428,7 @@ Usage:
 Options:
   --template full|outer|inner|agent-auth
   --agent-auth hosted|self-hosted
+  --cumulus-db cloud|local|both
   --company "Acme Inc"
   --package-manager npm|pnpm|yarn|bun
   --install | --no-install
@@ -416,14 +444,32 @@ Template aliases:
 export function nextSteps(options: CreateOptions): string {
   const cd = options.projectName.includes('/') ? options.targetDir : options.projectName;
   const runDev = options.packageManager === 'npm' ? 'npm run dev' : `${options.packageManager} dev`;
+  const runScript = (script: string) =>
+    options.packageManager === 'npm'
+      ? `npm run ${script}`
+      : `${options.packageManager} ${script}`;
+  const cumulusDbSteps = usesLocalCumulusDb(options)
+    ? `
+Cumulus DB:
+  ${runScript('cumulus-db:build')}
+  ${runScript('cumulus-db:start')}
+  ${runScript('cumulus-db:workspace')}
+`
+    : options.cumulusDb === 'cloud'
+      ? `
+Cumulus DB:
+  use hosted Relay/Cumulus Cloud to provision the cumulus-database provider
+`
+      : '';
   return `Created ${options.companyName} in ${options.targetDir}
 
 Next:
   cd ${cd}
   ${options.install ? runDev : `${options.packageManager} install\n  ${runDev}`}
+${cumulusDbSteps}
 
 Configure:
   cp .env.example .env.local
-  fill SESSION_SECRET and Relay values
+  fill SESSION_SECRET, Relay values, and Cumulus DB values
 `;
 }

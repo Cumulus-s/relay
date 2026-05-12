@@ -15,6 +15,7 @@ export const USER_NAV: NavItem[] = [
   { href: '/me/keys',     label: 'Keys'     },
   { href: '/me/inbox',    label: 'Inbox'    },
   { href: '/me/agents',   label: 'Agents'   },
+  { href: '/me/database', label: 'Database' },
   { href: '/me/share',    label: 'Share'    },
   { href: '/me/agent-guide', label: 'Guide' },
   { href: '/me/security', label: 'Security' },

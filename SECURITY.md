@@ -20,6 +20,9 @@ We'll acknowledge within 48 hours and aim to patch critical issues within 7 days
 - **Data exposure** — leaking plaintext credentials, agent tokens, or user emails outside their owner.
 - **Inbound email bypass** — accepting a POST to `/v1/webhooks/email` without a valid `?secret=$EMAIL_SENDGRID_SECRET`, or HMAC signature bypass on outbound tenant webhooks.
 - **Cross-tenant access** — one tenant's agent seeing another tenant's data.
+- **Generated Cumulus DB proxy bypass** — generated `/api/cumulus-db/*` routes
+  exposing master-key-only operations or allowing one database token to access
+  another database.
 - **Session fixation or replay**.
 
 ## Not In Scope

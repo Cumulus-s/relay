@@ -28,6 +28,7 @@ teams audit the system, self-host it, and adapt it for their own stack.
 | API | Hono mounted at `/v1/*` |
 | MCP | Streamable HTTP MCP at `/mcp` |
 | Database | Postgres with Drizzle ORM |
+| Agent workspace storage | Hosted or local Cumulus DB over HTTP |
 | Workflows | Vercel Workflow DevKit |
 | Auth | email OTP, passkeys, sessions, bearer agent tokens |
 | Billing | Stripe |
@@ -47,6 +48,8 @@ packages/cli/           @cumulus/cli
 packages/server-sdk/    @cumulus/server
 packages/track-sdk/     @cumulus/track
 packages/create-cumulus create-cumulus project creator
+packages/create-cumulus/templates/cumulus-db
+                        vendored local Cumulus DB service template
 docs/                   operator and contributor docs
 ```
 
@@ -87,6 +90,10 @@ Relay exposes:
 - human dashboards under `/me` and `/dev`
 - package creator through `create-cumulus`
 
+Generated `full`, `inner`, and `agent-auth` projects expose a simple Cumulus DB
+UI. `full` and `inner` use `/me/database`; `agent-auth` uses `/database`.
+Generated public app code accesses Cumulus DB through HTTP/token proxy routes.
+
 ## Development
 
 ```bash
@@ -103,6 +110,7 @@ Postgres database and set `DATABASE_URL`.
 ## Licensing
 
 The Relay server is AGPL-3.0-only. The npm integration packages and small
-hosted SDK-only starter templates are MIT-licensed. Generated full, inner, and
-self-hosted templates include the Relay app/server and default to
-AGPL-3.0-only.
+hosted SDK-only starter templates are MIT-licensed. Generated full, inner,
+self-hosted, and local Cumulus DB templates include AGPL services and default
+to AGPL-3.0-only. Small hosted `agent-auth --cumulus-db cloud` projects remain
+MIT.

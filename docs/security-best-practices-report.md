@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This release pass focused on the Next.js route handlers, generated project templates, secret handling, package contents, and open-source release posture. No critical issue remains from this pass. Two template issues were fixed before release: generated projects now derive placeholder project names from the real company name, and generated webhook/action routes fail closed in production when required HMAC secrets are missing.
+This release pass focused on the Next.js route handlers, generated project templates, Cumulus DB template integration, secret handling, package contents, and open-source release posture. No critical issue remains from this pass. Template fixes and checks now cover generated project naming, fail-closed webhook/action routes, and Cumulus DB HTTP-only app integration.
 
 ## Fixed Findings
 
@@ -42,9 +42,22 @@ The file-based templates preserved official Cumulus contact and address text in 
 
 Fix: generated public pages now use `__COMPANY_NAME__` for operator wording and placeholder `example.com` contacts that the generated project owner must replace. Licensing copy now distinguishes MIT hosted starter pieces from AGPL full/self-hosted templates.
 
+### SBP-005: Generated Cumulus DB integration could blur AGPL and app-code boundaries
+
+Severity: High if implemented with direct imports
+Location: `packages/create-cumulus/templates/cumulus-db-app`
+
+The local Cumulus DB service is AGPL-3.0-only. Importing its source directly
+into MIT generated app code would create a confusing license and deployment
+boundary.
+
+Fix: generated app code only uses HTTP/token proxy routes. Local DB source is
+vendored under `apps/cumulus-db` with its own `LICENSE` and `NOTICE`, and local
+DB projects conservatively default to AGPL-3.0-only.
+
 ## Current Residual Risks
 
-### SBP-005: Sensitive auth/template ownership is currently single-maintainer in git history
+### SBP-006: Sensitive auth/template ownership is currently single-maintainer in git history
 
 Severity: Medium  
 Evidence: ownership-map run against the last 12 months showed low bus factor for auth, secret, and template paths.
@@ -53,7 +66,7 @@ Impact: this does not create a runtime vulnerability, but it increases review ri
 
 Recommendation: require review on auth, crypto, billing, webhook, MCP, and `packages/create-cumulus/templates/**` changes through CODEOWNERS or branch protection once the public repository is fully active.
 
-### SBP-006: Payload limits and edge rate limits are deployment-dependent
+### SBP-007: Payload limits and edge rate limits are deployment-dependent
 
 Severity: Medium  
 Evidence: the app documents Vercel or another Node-compatible platform in `SELF_HOSTING.md`; route handlers rely on platform request handling for some payload-size protection.
@@ -65,6 +78,10 @@ Recommendation: document reverse-proxy payload limits in self-hosting docs and a
 ## Verification Performed
 
 - Creator package tests and typecheck passed after the fixes.
+- Generated Cumulus DB file, script, env, README, UI route, and license
+  assertions passed across template and DB-mode combinations.
+- Local Cumulus DB service test, build, and generated start-script health check
+  passed.
 - Template scans found no remaining generated official Cumulus legal contacts.
 - Ownership map was generated to `/tmp/cumulus-ownership-map-out` and not committed because it contains contributor metadata.
 - Root `typecheck`, `test`, and `build` passed.

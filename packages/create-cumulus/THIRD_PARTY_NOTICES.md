@@ -9,8 +9,12 @@ resolved by the package manager used during install.
 Bundled templates include Plus Jakarta Sans font files. The generated app keeps
 those font files under the upstream font license.
 
+Local Cumulus DB templates include the AGPL-3.0-only service under
+`apps/cumulus-db` with its own `LICENSE` and `NOTICE` files.
+
 The `create-cumulus` package is MIT-licensed. Generated `full`, `inner`, and
-self-hosted app/server templates default to AGPL-3.0-only. Small hosted
+self-hosted app/server templates default to AGPL-3.0-only. Generated projects
+that include local Cumulus DB also default to AGPL-3.0-only. Small hosted
 integration templates default to MIT.
 
 No private Cumulus or Relay production secrets are bundled in this package.

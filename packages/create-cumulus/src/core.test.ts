@@ -8,11 +8,18 @@ import {
   parseCliArgs,
   resolveCreateOptions,
 } from './core';
-import { agentAuthModes, buildFiles, templateNames, type RenderOptions } from './templates';
+import {
+  agentAuthModes,
+  buildFiles,
+  defaultCumulusDbMode,
+  templateNames,
+  type RenderOptions,
+} from './templates';
 
 function options(
   template: RenderOptions['template'],
   agentAuth: RenderOptions['agentAuth'],
+  cumulusDb = defaultCumulusDbMode(template),
 ): RenderOptions {
   return {
     projectName: 'my-acme',
@@ -20,6 +27,7 @@ function options(
     companyName: 'Acme Inc',
     template,
     agentAuth,
+    cumulusDb,
     packageManager: 'npm',
   };
 }
@@ -33,6 +41,8 @@ describe('parseCliArgs', () => {
         'full',
         '--agent-auth',
         'self-hosted',
+        '--cumulus-db',
+        'both',
         '--company',
         'Acme Inc',
         '--package-manager',
@@ -44,6 +54,7 @@ describe('parseCliArgs', () => {
       projectName: 'my-acme',
       template: 'full',
       agentAuth: 'self-hosted',
+      cumulusDb: 'both',
       companyName: 'Acme Inc',
       packageManager: 'pnpm',
       install: false,
@@ -62,6 +73,12 @@ describe('parseCliArgs', () => {
   it('rejects unknown templates before writing files', () => {
     expect(() => parseCliArgs(['demo', '--template', 'unknown'])).toThrow(
       /invalid --template/,
+    );
+  });
+
+  it('rejects unknown Cumulus DB modes before writing files', () => {
+    expect(() => parseCliArgs(['demo', '--cumulus-db', 'embedded'])).toThrow(
+      /invalid --cumulus-db/,
     );
   });
 
@@ -92,7 +109,23 @@ describe('naming', () => {
     expect(createOptions.projectName).toBe('launch-labs');
     expect(createOptions.packageName).toBe('launch-labs');
     expect(createOptions.companyName).toBe('Launch Labs');
+    expect(createOptions.cumulusDb).toBe('both');
     expect(createOptions.targetDir).toBe(join(root, 'launch-labs'));
+  });
+
+  it('defaults outer projects to hosted Cumulus DB only', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'create-cumulus-'));
+    const parsed = parseCliArgs([
+      'outer-demo',
+      '--template',
+      'outer',
+      '--no-install',
+      '--no-git',
+    ]);
+    const createOptions = await resolveCreateOptions(parsed, root);
+
+    expect(createOptions.template).toBe('marketing');
+    expect(createOptions.cumulusDb).toBe('cloud');
   });
 
   it('preserves explicit non-placeholder directories when --company is different', async () => {
@@ -132,6 +165,7 @@ describe('buildFiles', () => {
           template === 'marketing' ? 'outer' : template === 'inside' ? 'inner' : template;
         expect(files.get('README.md')).toContain(`Template: \`${publicTemplate}\``);
         expect(files.get('README.md')).toContain(`Agent auth mode: \`${agentAuth}\``);
+        expect(files.get('README.md')).toContain('Cumulus DB mode: `');
         expect(files.get('package.json')).not.toContain('@cumulus/server');
         expect(files.get('app/globals.css')).toContain('@import "tailwindcss"');
         expect(files.get('app/components/DashboardShell.tsx')).toContain('relay-app');
@@ -163,8 +197,29 @@ describe('buildFiles', () => {
           expect(files.has('app/(user)/me/page.tsx')).toBe(true);
           expect(files.has('app/(dev)/dev/page.tsx')).toBe(true);
           expect(files.has('app/dashboard/page.tsx')).toBe(true);
+          expect(files.has('app/(user)/me/database/page.tsx')).toBe(true);
         } else {
           expect(files.has('app/(user)/me/page.tsx')).toBe(false);
+        }
+
+        if (template === 'full' || template === 'inside' || template === 'agent-auth') {
+          expect(files.has('app/api/cumulus-db/env/parse/route.ts')).toBe(true);
+          expect(files.has('src/lib/cumulus-db/server.ts')).toBe(true);
+        }
+
+        if (template === 'agent-auth') {
+          expect(files.has('app/database/page.tsx')).toBe(true);
+        }
+
+        if (template === 'marketing') {
+          expect(files.has('apps/cumulus-db/package.json')).toBe(false);
+          expect(files.has('app/api/cumulus-db/env/parse/route.ts')).toBe(false);
+        } else {
+          expect(files.has('apps/cumulus-db/package.json')).toBe(true);
+          expect(files.has('apps/cumulus-db/LICENSE')).toBe(true);
+          expect(files.has('apps/cumulus-db/NOTICE')).toBe(true);
+          expect(files.has('scripts/create-cumulus-db-workspace.ts')).toBe(true);
+          expect(files.get('package.json')).toContain('cumulus-db:workspace');
         }
 
         if (template === 'full' || template === 'marketing') {
@@ -211,6 +266,54 @@ describe('buildFiles', () => {
     const files = buildFiles(options('agent-auth', 'hosted'));
     const font = files.get('public/fonts/PlusJakartaSans/PlusJakartaSans-Regular.ttf');
     expect(font).toBeInstanceOf(Uint8Array);
+  });
+
+  it('keeps cloud-only agent auth MIT and excludes local Cumulus DB files', () => {
+    const files = buildFiles(options('agent-auth', 'hosted', 'cloud'));
+
+    expect(files.get('package.json')).toContain('"license": "MIT"');
+    expect(files.has('apps/cumulus-db/package.json')).toBe(false);
+    expect(files.has('scripts/create-cumulus-db-workspace.ts')).toBe(false);
+    expect(files.has('app/database/page.tsx')).toBe(true);
+    expect(files.get('.env.example')).toContain('CUMULUS_DB_PUBLIC_URL=https://db.cumulush.com');
+  });
+
+  it('adds local Cumulus DB service files, scripts, env, and AGPL license', () => {
+    const files = buildFiles(options('agent-auth', 'hosted', 'both'));
+    const packageJson = files.get('package.json');
+
+    expect(files.has('apps/cumulus-db/package.json')).toBe(true);
+    expect(files.has('apps/cumulus-db/src/server.ts')).toBe(true);
+    expect(files.has('apps/cumulus-db/src/__tests__/http.test.ts')).toBe(true);
+    expect(files.get('apps/cumulus-db/package.json')).toContain(
+      '"license": "AGPL-3.0-only"',
+    );
+    expect(packageJson).toContain('"license": "AGPL-3.0-only"');
+    expect(packageJson).toContain('"cumulus-db:build"');
+    expect(packageJson).toContain('"cumulus-db:workspace"');
+    expect(files.get('.env.example')).toContain('CUMULUS_DB_MASTER_KEY');
+    expect(files.get('.env.example')).toContain('CUMULUS_DB_DATA_DIR');
+    expect(files.get('README.md')).toContain('Relay Postgres');
+    expect(files.get('README.md')).toContain('AGPL-3.0-only');
+  });
+
+  it('does not persist Cumulus DB bearer tokens in generated browser storage', () => {
+    const files = buildFiles(options('agent-auth', 'hosted', 'both'));
+    const panel = files.get('app/components/CumulusDatabasePanel.tsx');
+
+    expect(panel).toContain("headers.set('Authorization', `Bearer ${token}`)");
+    expect(panel).toContain('JSON.stringify({ databaseId: id })');
+    expect(panel).not.toContain('token: scopedToken');
+  });
+
+  it('documents local Cumulus DB when outer projects explicitly request it', () => {
+    const files = buildFiles(options('marketing', 'hosted', 'local'));
+
+    expect(files.has('apps/cumulus-db/package.json')).toBe(true);
+    expect(files.has('app/api/cumulus-db/env/parse/route.ts')).toBe(false);
+    expect(files.get('.env.example')).toContain('CUMULUS_DB_MASTER_KEY');
+    expect(files.get('README.md')).toContain('Cumulus DB mode: `local`');
+    expect(files.get('package.json')).toContain('"license": "AGPL-3.0-only"');
   });
 });
 

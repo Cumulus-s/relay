@@ -16,6 +16,9 @@ Self-hosting means you operate:
 - optional billing,
 - optional built-in provider credentials.
 
+Generated apps may also include Cumulus DB. That is a separate storage service
+for agent workspace records. It does not replace Relay Postgres.
+
 ## Choose A Mode
 
 | Mode | Use When |
@@ -126,6 +129,43 @@ Observability:
 | `SENTRY_DSN` | Error reporting. |
 | `SENTRY_TRACES_SAMPLE_RATE` | Trace sample rate. |
 | `LOG_LEVEL` | Pino log level. |
+
+## Cumulus DB
+
+Relay Postgres and Cumulus DB have different jobs:
+
+- Relay Postgres uses `DATABASE_URL` for users, sessions, tenants, signup jobs,
+  provider records, and API-key bookkeeping.
+- Cumulus DB stores agent workspace records, key-value data, secrets, and
+  search data through a separate HTTP service.
+
+Generated `full`, `inner`, and `agent-auth` projects default to
+`--cumulus-db both`. That means they document hosted Cumulus DB and include the
+local AGPL Cumulus DB service under `apps/cumulus-db`. Generated `outer`
+projects default to `--cumulus-db cloud`.
+
+For a local generated Cumulus DB service, set:
+
+```bash
+CUMULUS_DB_PUBLIC_URL=http://localhost:4317
+CUMULUS_DB_INTERNAL_URL=http://localhost:4317
+CUMULUS_DB_MASTER_KEY=replace-with-32-byte-base64-key
+CUMULUS_DB_RELAY_WEBHOOK_SECRET=replace-with-relay-tenant-webhook-secret
+CUMULUS_DB_DATA_DIR=.cumulus-db-data
+CUMULUS_DB_PORT=4317
+```
+
+Then run:
+
+```bash
+npm run cumulus-db:build
+npm run cumulus-db:start
+npm run cumulus-db:workspace
+```
+
+Use a persistent disk for `CUMULUS_DB_DATA_DIR` in production. Local Cumulus DB
+redistribution includes AGPL obligations. Hosted Cumulus DB instead needs cloud
+credentials from hosted Relay/Cumulus Cloud.
 
 ## Deployment
 

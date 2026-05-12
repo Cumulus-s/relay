@@ -4,10 +4,12 @@ import { fileURLToPath } from 'node:url';
 
 export const templateNames = ['full', 'marketing', 'inside', 'agent-auth'] as const;
 export const agentAuthModes = ['hosted', 'self-hosted'] as const;
+export const cumulusDbModes = ['cloud', 'local', 'both'] as const;
 export const packageManagers = ['npm', 'pnpm', 'yarn', 'bun'] as const;
 
 export type TemplateName = (typeof templateNames)[number];
 export type AgentAuthMode = (typeof agentAuthModes)[number];
+export type CumulusDbMode = (typeof cumulusDbModes)[number];
 export type PackageManager = (typeof packageManagers)[number];
 export type FileContent = string | Uint8Array;
 export type FileMap = Map<string, FileContent>;
@@ -18,6 +20,7 @@ export interface RenderOptions {
   companyName: string;
   template: TemplateName;
   agentAuth: AgentAuthMode;
+  cumulusDb: CumulusDbMode;
   packageManager: PackageManager;
 }
 
@@ -59,6 +62,10 @@ export function isAgentAuthMode(value: string): value is AgentAuthMode {
   return (agentAuthModes as readonly string[]).includes(value);
 }
 
+export function isCumulusDbMode(value: string): value is CumulusDbMode {
+  return (cumulusDbModes as readonly string[]).includes(value);
+}
+
 export function isPackageManager(value: string): value is PackageManager {
   return (packageManagers as readonly string[]).includes(value);
 }
@@ -77,12 +84,24 @@ function hasInside(template: TemplateName): boolean {
   return template === 'full' || template === 'inside';
 }
 
+function hasCumulusDbApp(template: TemplateName): boolean {
+  return template === 'full' || template === 'inside' || template === 'agent-auth';
+}
+
 function usesLocalRelayStack(o: RenderOptions): boolean {
   return hasInside(o.template) || o.agentAuth === 'self-hosted';
 }
 
+export function usesLocalCumulusDb(o: RenderOptions): boolean {
+  return o.cumulusDb === 'local' || o.cumulusDb === 'both';
+}
+
+export function defaultCumulusDbMode(template: TemplateName): CumulusDbMode {
+  return template === 'marketing' ? 'cloud' : 'both';
+}
+
 function generatedLicense(o: RenderOptions): 'AGPL-3.0-only' | 'MIT' {
-  return usesLocalRelayStack(o) ? 'AGPL-3.0-only' : 'MIT';
+  return usesLocalRelayStack(o) || usesLocalCumulusDb(o) ? 'AGPL-3.0-only' : 'MIT';
 }
 
 function json(value: unknown): string {
@@ -94,6 +113,8 @@ function tokenMap(o: RenderOptions): TokenMap {
   const baseUrl = 'http://localhost:3000';
   const relayBase =
     o.agentAuth === 'self-hosted' ? baseUrl : 'https://relay.cumulush.com';
+  const cumulusDbBase =
+    usesLocalCumulusDb(o) ? 'http://localhost:4317' : 'https://db.cumulush.com';
 
   return {
     __PROJECT_NAME__: o.projectName,
@@ -105,6 +126,8 @@ function tokenMap(o: RenderOptions): TokenMap {
     __RELAY_ENDPOINT__: `${relayBase}/v1`,
     __RELAY_ISSUER__: relayBase,
     __RELAY_JWKS_URI__: `${relayBase}/.well-known/jwks.json`,
+    __CUMULUS_DB_MODE__: o.cumulusDb,
+    __CUMULUS_DB_FALLBACK_URL__: cumulusDbBase,
   };
 }
 
@@ -224,8 +247,15 @@ function hostedDevDependencies(): Record<string, string> {
   };
 }
 
+function devDependencies(o: RenderOptions): Record<string, string> {
+  const deps = usesLocalRelayStack(o) ? relayDevDependencies() : hostedDevDependencies();
+  if (usesLocalCumulusDb(o)) deps.tsx = '^4.21.0';
+  return deps;
+}
+
 function packageJson(o: RenderOptions): string {
   const localRelay = usesLocalRelayStack(o);
+  const localCumulusDb = usesLocalCumulusDb(o);
   return `${json({
     name: o.packageName,
     version: '0.1.0',
@@ -243,9 +273,19 @@ function packageJson(o: RenderOptions): string {
             'db:check': 'tsx scripts/check-schema.ts',
           }
         : {}),
+      ...(localCumulusDb
+        ? {
+            'cumulus-db:build': 'npm --prefix apps/cumulus-db run build',
+            'cumulus-db:start': 'tsx scripts/start-cumulus-db.ts',
+            'cumulus-db:test': 'npm --prefix apps/cumulus-db run test',
+            'cumulus-db:smoke':
+              'npm --prefix apps/cumulus-db run build && npm --prefix apps/cumulus-db run smoke',
+            'cumulus-db:workspace': 'tsx scripts/create-cumulus-db-workspace.ts',
+          }
+        : {}),
     },
     dependencies: localRelay ? relayDependencies() : hostedDependencies(),
-    devDependencies: localRelay ? relayDevDependencies() : hostedDevDependencies(),
+    devDependencies: devDependencies(o),
     overrides: {
       postcss: '^8.5.14',
     },
@@ -281,7 +321,7 @@ function tsconfig(o: RenderOptions): string {
       '.next/types/**/*.ts',
       '.next/dev/types/**/*.ts',
     ],
-    exclude: ['node_modules', '.next', '.vercel'],
+    exclude: ['node_modules', '.next', '.vercel', 'apps/cumulus-db/dist'],
   })}\n`;
 }
 
@@ -295,23 +335,66 @@ function nextConfig(o: RenderOptions): string {
 
 function envExample(o: RenderOptions): string {
   const localRelay = usesLocalRelayStack(o);
+  const localCumulusDb = usesLocalCumulusDb(o);
+  const cumulusDbSection = (hasCumulusDbApp(o.template) || localCumulusDb)
+    ? localCumulusDb
+      ? `\n# Cumulus DB service. This is separate from Relay's DATABASE_URL.\nCUMULUS_DB_PUBLIC_URL=http://localhost:4317\nCUMULUS_DB_INTERNAL_URL=http://localhost:4317\nCUMULUS_DB_MASTER_KEY=replace-with-32-byte-base64-key\nCUMULUS_DB_RELAY_WEBHOOK_SECRET=replace-with-relay-tenant-webhook-secret\nCUMULUS_DB_DATA_DIR=.cumulus-db-data\nCUMULUS_DB_PORT=4317\n`
+      : `\n# Hosted Cumulus DB service. Signup returns database id and scoped tokens.\nCUMULUS_DB_PUBLIC_URL=https://db.cumulush.com\nCUMULUS_DB_INTERNAL_URL=\n`
+    : '';
   const shared = `# ${o.companyName} — generated by create-cumulus\nAPP_BASE_URL=http://localhost:3000\nSESSION_SECRET=\n\n# Relay agent-auth bootstrap\nRELAY_ENDPOINT=${o.agentAuth === 'self-hosted' ? 'http://localhost:3000/v1' : 'https://relay.cumulush.com/v1'}\nRELAY_TENANT_ID=\nRELAY_TENANT_SLUG=${o.packageName}\nRELAY_ISSUER=${o.agentAuth === 'self-hosted' ? 'http://localhost:3000' : 'https://relay.cumulush.com'}\nRELAY_JWKS_URI=${o.agentAuth === 'self-hosted' ? 'http://localhost:3000/.well-known/jwks.json' : 'https://relay.cumulush.com/.well-known/jwks.json'}\nRELAY_WEBHOOK_SECRET=\nRELAY_ACTIONS_SECRET=\n`;
 
-  if (!localRelay) return `${shared}\n`;
+  if (!localRelay) return `${shared}${cumulusDbSection}\n`;
 
-  return `${shared}\n# Local Relay control plane\nDATABASE_URL=\nMASTER_KEY=\nRELAY_JWT_PRIVATE_KEY=\nEMAIL_SENDGRID_SECRET=\nCATCHALL_DOMAIN=inbox.example.com\nRESEND_API_KEY=\nRELAY_FROM_ADDRESS=noreply@example.com\nWEBAUTHN_RP_ID=localhost\nWEBAUTHN_RP_NAME=Relay\nWEBAUTHN_ORIGIN=http://localhost:3000\n\n# Optional built-in providers\nNEON_API_KEY=\nVERCEL_API_TOKEN=\n\n# Optional billing\nSTRIPE_SECRET_KEY=\nSTRIPE_WEBHOOK_SECRET=\nSTRIPE_PRICE_BUILDER=\nSTRIPE_PRICE_STARTER=\nSTRIPE_PRICE_GROWTH=\nSTRIPE_PRICE_SCALE=\nBILLING_ENFORCEMENT=off\nBILLING_FAIRNESS=on\nABUSE_ENFORCEMENT=warn\nUSER_SIGNUP_MONTHLY_LIMIT=50\nLOG_LEVEL=\nSENTRY_DSN=\nSENTRY_TRACES_SAMPLE_RATE=0.1\n`;
+  return `${shared}\n# Local Relay control plane. This Postgres URL is not Cumulus DB storage.\nDATABASE_URL=\nMASTER_KEY=\nRELAY_JWT_PRIVATE_KEY=\nEMAIL_SENDGRID_SECRET=\nCATCHALL_DOMAIN=inbox.example.com\nRESEND_API_KEY=\nRELAY_FROM_ADDRESS=noreply@example.com\nWEBAUTHN_RP_ID=localhost\nWEBAUTHN_RP_NAME=Relay\nWEBAUTHN_ORIGIN=http://localhost:3000\n${cumulusDbSection}\n# Optional built-in providers\nNEON_API_KEY=\nVERCEL_API_TOKEN=\n\n# Optional billing\nSTRIPE_SECRET_KEY=\nSTRIPE_WEBHOOK_SECRET=\nSTRIPE_PRICE_BUILDER=\nSTRIPE_PRICE_STARTER=\nSTRIPE_PRICE_GROWTH=\nSTRIPE_PRICE_SCALE=\nBILLING_ENFORCEMENT=off\nBILLING_FAIRNESS=on\nABUSE_ENFORCEMENT=warn\nUSER_SIGNUP_MONTHLY_LIMIT=50\nLOG_LEVEL=\nSENTRY_DSN=\nSENTRY_TRACES_SAMPLE_RATE=0.1\n`;
 }
 
 function readme(o: RenderOptions): string {
   const publicTemplate = publicTemplateName(o.template);
   const localRelay = usesLocalRelayStack(o);
+  const localCumulusDb = usesLocalCumulusDb(o);
+  const cumulusDbApp = hasCumulusDbApp(o.template);
   const devCommand = o.packageManager === 'npm' ? 'npm run dev' : `${o.packageManager} dev`;
   const migrateCommand =
     o.packageManager === 'npm' ? 'npm run db:migrate' : `${o.packageManager} db:migrate`;
+  const dbBuildCommand =
+    o.packageManager === 'npm' ? 'npm run cumulus-db:build' : `${o.packageManager} cumulus-db:build`;
+  const dbStartCommand =
+    o.packageManager === 'npm' ? 'npm run cumulus-db:start' : `${o.packageManager} cumulus-db:start`;
+  const dbWorkspaceCommand =
+    o.packageManager === 'npm'
+      ? 'npm run cumulus-db:workspace'
+      : `${o.packageManager} cumulus-db:workspace`;
   const modeText =
     o.agentAuth === 'hosted'
       ? 'Hosted mode connects those surfaces to hosted Cumulus Cloud by default.'
       : "Self-hosted mode points those surfaces at this app's local Relay API/MCP service.";
+  const databaseText = !cumulusDbApp && !localCumulusDb
+    ? ''
+    : localCumulusDb
+      ? `## Cumulus DB
+
+Cumulus DB mode: \`${o.cumulusDb}\`.
+
+Relay Postgres and Cumulus DB are separate. Relay Postgres uses \`DATABASE_URL\` for auth, tenants, signup jobs, and API-key bookkeeping. Cumulus DB stores agent workspace records.
+
+This project includes the local Cumulus DB service in \`apps/cumulus-db\`. It stores records on disk through its own HTTP API. The local service is AGPL-3.0-only; if you redistribute or run a modified network service, keep the AGPL source obligations in mind.
+
+\`\`\`bash
+${dbBuildCommand}
+${dbStartCommand}
+${dbWorkspaceCommand}
+\`\`\`
+
+Use \`CUMULUS_DB_DATA_DIR\` for persistent disk in production. Use hosted Cumulus DB by setting \`CUMULUS_DB_PUBLIC_URL=https://db.cumulush.com\` and provisioning credentials through hosted Relay.
+`
+      : `## Cumulus DB
+
+Cumulus DB mode: \`${o.cumulusDb}\`.
+
+Relay Postgres and Cumulus DB are separate. Relay Postgres uses \`DATABASE_URL\` for auth, tenants, signup jobs, and API-key bookkeeping. Cumulus DB stores agent workspace records.
+
+This project uses hosted Cumulus DB. Hosted Relay/Cumulus Cloud provisions a database id plus scoped tokens through the \`cumulus-database\` provider. No local Cumulus DB service is included in this scaffold.
+`;
   const localRelayText = localRelay
     ? `## Self Hosting
 
@@ -332,6 +415,7 @@ Generated with \`create-cumulus\`.
 
 - Template: \`${publicTemplate}\`
 - Agent auth mode: \`${o.agentAuth}\`
+- Cumulus DB mode: \`${o.cumulusDb}\`
 - License: \`${generatedLicense(o)}\`
 
 This scaffold keeps the Relay/Cumulus user experience, theme, components, and agent-auth shape.
@@ -358,11 +442,12 @@ The app exposes:
 ${modeText}
 
 ${localRelayText}
+${databaseText}
 `;
 }
 
 function gitignore(): string {
-  return `node_modules/\n.next/\nout/\ndist/\n.env\n.env.local\n.env.*.local\n!.env.example\n.DS_Store\n*.tsbuildinfo\n`;
+  return `node_modules/\n.next/\nout/\ndist/\n.env\n.env.local\n.env.*.local\n!.env.example\n.DS_Store\n*.tsbuildinfo\n.cumulus-db-data/\napps/cumulus-db/.cumulus-db-data/\napps/cumulus-db/dist/\n`;
 }
 
 function mitLicense(o: RenderOptions): string {
@@ -397,6 +482,21 @@ export function buildFiles(o: RenderOptions): FileMap {
   }
 
   merge(files, readTemplateDir('integration', tokens));
+
+  if (usesLocalCumulusDb(o)) {
+    merge(files, readTemplateDir('cumulus-db', tokens));
+    merge(files, readTemplateDir('cumulus-db-local', tokens));
+  }
+
+  if (hasCumulusDbApp(o.template)) {
+    merge(files, readTemplateDir('cumulus-db-app', tokens));
+    if (hasInside(o.template)) {
+      merge(files, readTemplateDir('cumulus-db-inside', tokens));
+    }
+    if (o.template === 'agent-auth') {
+      merge(files, readTemplateDir('cumulus-db-agent-auth', tokens));
+    }
+  }
 
   if (o.template === 'inside') {
     merge(files, readTemplateDir('overrides/inside', tokens));

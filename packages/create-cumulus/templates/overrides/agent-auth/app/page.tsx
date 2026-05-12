@@ -40,6 +40,12 @@ export default function AgentAuthStarterPage() {
       <RowMono label="Actions webhook">
         <MonoVal value="POST /api/actions" />
       </RowMono>
+
+      <Row label="Cumulus DB">
+        Connect to a Cumulus DB workspace with a database id and scoped data token.
+        <br />
+        <Link href="/database">Open database →</Link>
+      </Row>
     </main>
   );
 }

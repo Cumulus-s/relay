@@ -28,6 +28,14 @@ npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
 ```
 
 Do not commit `.npmrc` files or tokens.
+Prefer a temporary npm config for one publish:
+
+```bash
+tmp_npmrc="$(mktemp)"
+printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$tmp_npmrc"
+npm --userconfig "$tmp_npmrc" publish --access public
+rm -f "$tmp_npmrc"
+```
 
 ## Build and Publish
 
@@ -38,6 +46,20 @@ npm run typecheck
 npm run test --if-present
 npm run build
 npm publish --access public
+```
+
+Before publishing `create-cumulus`, also run the root release checks and the
+local Cumulus DB service checks when templates changed:
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+npm run create-cumulus:typecheck
+npm run create-cumulus:test
+npm run create-cumulus:build
+npm --prefix /path/to/public-cumulus-repo/apps/cumulus-db run test
+npm --prefix /path/to/public-cumulus-repo/apps/cumulus-db run build
 ```
 
 The package `prepublishOnly` hooks run tests or builds again where configured.
@@ -61,9 +83,22 @@ npm view create-cumulus@latest version
 npx --yes create-cumulus@latest /tmp/cumulus-smoke \
   --template agent-auth \
   --agent-auth hosted \
+  --cumulus-db cloud \
   --no-install \
   --no-git
 test -f /tmp/cumulus-smoke/app/api/relay-login/route.ts
+test -f /tmp/cumulus-smoke/app/database/page.tsx
+test ! -d /tmp/cumulus-smoke/apps/cumulus-db
+
+npx --yes create-cumulus@latest /tmp/cumulus-smoke-full \
+  --template full \
+  --agent-auth hosted \
+  --no-install \
+  --no-git
+test -f /tmp/cumulus-smoke-full/apps/cumulus-db/LICENSE
+test -f /tmp/cumulus-smoke-full/app/api/cumulus-db/records/route.ts
+test -f /tmp/cumulus-smoke-full/app/'(user)'/me/database/page.tsx
+node -e "const pkg=require('/tmp/cumulus-smoke-full/package.json'); if (!pkg.scripts['cumulus-db:start']) process.exit(1)"
 ```
 
 `npm create cumulus@latest` is npm shorthand. It resolves to the
@@ -77,6 +112,10 @@ npm create cumulus@latest /tmp/cumulus-smoke -- \
   --no-git
 ```
 
+`outer` defaults to hosted Cumulus DB and should not include
+`apps/cumulus-db` unless `--cumulus-db local` or `--cumulus-db both` is
+explicitly passed.
+
 ## Versioning
 
 Use semver. Patch releases are for fixes and docs, minor releases for new
@@ -88,4 +127,6 @@ npm version patch
 npm publish --access public
 ```
 
-Push the git tag created by `npm version` after the release commit is ready.
+For `create-cumulus`, use package-specific git tags such as
+`create-cumulus-v0.3.0`. Push the release commit and tag after npm publish
+passes.

@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+import { randomBytes } from 'node:crypto';
+import { resolve } from 'node:path';
+
+export interface CumulusDbConfig {
+  dataDir: string;
+  publicUrl: string;
+  adminSecret: string | null;
+  masterKey: Buffer;
+  relayWebhookSecret: string | null;
+  port: number;
+  embeddings: {
+    baseUrl: string | null;
+    apiKey: string | null;
+    model: string | null;
+  };
+}
+
+function parseMasterKey(raw: string | undefined): Buffer {
+  if (!raw) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CUMULUS_DB_MASTER_KEY is required in production');
+    }
+    return Buffer.alloc(32, 7);
+  }
+
+  const asBase64 = Buffer.from(raw, 'base64');
+  if (asBase64.length === 32) return asBase64;
+
+  const asUtf8 = Buffer.from(raw, 'utf8');
+  if (asUtf8.length >= 32) return asUtf8.subarray(0, 32);
+
+  throw new Error('CUMULUS_DB_MASTER_KEY must decode to at least 32 bytes');
+}
+
+export function randomMasterKey(): string {
+  return randomBytes(32).toString('base64');
+}
+
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): CumulusDbConfig {
+  const dataDir = resolve(env.CUMULUS_DB_DATA_DIR ?? '.cumulus-db-data');
+  const publicUrl = (env.CUMULUS_DB_PUBLIC_URL ?? 'http://localhost:4317').replace(/\/$/, '');
+  const port = Number(env.CUMULUS_DB_PORT ?? env.PORT ?? '4317');
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('CUMULUS_DB_PORT or PORT must be a valid TCP port');
+  }
+
+  return {
+    dataDir,
+    publicUrl,
+    adminSecret: env.CUMULUS_DB_MASTER_KEY ?? null,
+    masterKey: parseMasterKey(env.CUMULUS_DB_MASTER_KEY),
+    relayWebhookSecret: env.CUMULUS_DB_RELAY_WEBHOOK_SECRET ?? null,
+    port,
+    embeddings: {
+      baseUrl: env.OPENAI_COMPAT_EMBEDDINGS_BASE_URL || null,
+      apiKey: env.OPENAI_COMPAT_EMBEDDINGS_API_KEY || null,
+      model: env.OPENAI_COMPAT_EMBEDDINGS_MODEL || null,
+    },
+  };
+}

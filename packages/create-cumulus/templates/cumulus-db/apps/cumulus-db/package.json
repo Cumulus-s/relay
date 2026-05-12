@@ -1,0 +1,14 @@
+{
+  "name": "@cumulus/database",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "../../node_modules/.bin/tsc -p tsconfig.json",
+    "dev": "../../node_modules/.bin/tsc -w -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "../../node_modules/.bin/vitest run src/**/*.test.ts",
+    "smoke": "node dist/smoke.js"
+  }
+}

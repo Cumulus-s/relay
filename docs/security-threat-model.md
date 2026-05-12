@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Cumulus Relay is an internet-facing Next.js and Hono service that brokers agent signups, user sessions, tenant products, API keys, webhooks, MCP tools, billing, and optional provider automation. The highest-risk areas are credential storage, tenant isolation, signed webhook verification, agent-token authorization, inbound email parsing, and the generated `create-cumulus` templates that downstream users inherit.
+Cumulus Relay is an internet-facing Next.js and Hono service that brokers agent signups, user sessions, tenant products, API keys, webhooks, MCP tools, billing, optional provider automation, and generated Cumulus DB starter projects. The highest-risk areas are credential storage, tenant isolation, signed webhook verification, agent-token authorization, inbound email parsing, generated Cumulus DB proxy routes, and the generated `create-cumulus` templates that downstream users inherit.
 
 ## Scope And Assumptions
 
@@ -32,7 +32,7 @@ Open questions that can change risk ranking:
 - MCP server: `/mcp`, Streamable HTTP transport, implemented in `src/mcp/server.ts`.
 - Postgres schema and migrations: users, sessions, agents, tenants, providers, accounts, keys, billing, email, audit, and workflow tables.
 - Workflow and provider integrations: Vercel Workflow DevKit, Neon, Vercel, Resend, SendGrid, Stripe, Sentry.
-- Creator package: `packages/create-cumulus`, which packages Relay-branded generated apps.
+- Creator package: `packages/create-cumulus`, which packages Relay-branded generated apps and optional local Cumulus DB service templates.
 
 Evidence anchors: `README.md`, `SELF_HOSTING.md`, `src/server/app.ts`, `src/server/auth.ts`, `src/server/db/schema.ts`, `packages/create-cumulus/src/templates.ts`.
 
@@ -46,6 +46,7 @@ Evidence anchors: `README.md`, `SELF_HOSTING.md`, `src/server/app.ts`, `src/serv
 - Stripe -> Relay billing webhook: raw HTTP body verified by Stripe SDK signature checks.
 - Relay -> Postgres: SQL through Drizzle and Neon driver. Sensitive values are encrypted or hashed before persistence.
 - `create-cumulus` -> generated app: local file rendering with explicit tokens and an allow-listed template tree.
+- Generated app -> Cumulus DB: token-based HTTP proxy routes. Local projects may run `apps/cumulus-db`; hosted projects call hosted Cumulus DB.
 
 #### Diagram
 
@@ -61,6 +62,7 @@ flowchart LR
   H["Stripe"] --> C
   C --> I["Provider APIs"]
   J["create-cumulus"] --> K["Generated app"]
+  K --> L["Cumulus DB"]
 ```
 
 ## Assets And Security Objectives
@@ -75,6 +77,7 @@ flowchart LR
 | Email inbox contents | May contain verification codes and links | Confidentiality |
 | Billing and quota rows | Revenue and access control | Integrity, availability |
 | Creator templates | Copied into customer projects | Integrity, supply chain |
+| Cumulus DB tokens and master key | Authorize generated database access | Confidentiality, integrity |
 
 ## Attacker Model
 
@@ -114,6 +117,7 @@ flowchart LR
 6. Compromise `MASTER_KEY` -> decrypt stored provider credentials, webhook secrets, and account keys.
 7. Abuse billing webhook idempotency -> duplicate credits, quota changes, or subscription state.
 8. Poison creator package templates -> downstream projects inherit insecure routes or false legal/security docs.
+9. Expose local Cumulus DB master key through generated public routes -> database-wide data exposure.
 
 ## Threat Model Table
 
@@ -125,6 +129,7 @@ flowchart LR
 | TM-004 | Email/webhook sender | Provider webhook reachable | Send malformed, replayed, or oversized payload | Workflow confusion or DoS | Inbound emails, signup jobs | Shared secret gates email webhook; Stripe SDK verifies Stripe webhook | App-level payload size/rate limits may rely on hosting edge | Configure reverse-proxy payload limits and per-webhook rate limits | Track 4xx/5xx webhook rates and payload sizes | Medium | Medium | Medium |
 | TM-005 | Operator mistake | Production env incomplete | Deploy with missing secrets or default placeholders | Auth, HMAC, or encryption failures | Sessions, webhook secrets, DB encrypted data | Runtime checks exist for core secrets; generated templates now fail closed for production HMAC placeholders | Not all env requirements can be validated before deploy | Add `npm run env:check` before production deploy | Alert on startup/env validation failures | Medium | Medium | Medium |
 | TM-006 | Supply-chain attacker | Compromise npm/GitHub release path | Publish altered creator package | Downstream projects inherit malicious code | Creator package, generated apps | Package tests, pack dry-run, secret scans, explicit template allow-list | Requires strong account controls outside repo | Use npm 2FA/granular tokens, signed tags/releases, provenance if available | Monitor npm package diff and GitHub release checksum | Low | High | Medium |
+| TM-007 | Remote caller | Generated Cumulus DB proxy leaks privileged config | Use public app routes to access master-key-only operations | Database-wide record or secret exposure | Cumulus DB tokens, workspace records, secrets | Generated app uses caller-supplied database tokens and keeps the master key server-side for local workspace setup only | Downstream operators still own env handling | Keep generated proxy routes token-scoped and test that master keys are not returned | Alert on proxy calls without bearer tokens or unusual database IDs | Medium | High | High |
 
 ## Criticality Calibration
 
@@ -148,6 +153,8 @@ flowchart LR
 | `src/mcp/server.ts` | MCP tool auth and input validation | TM-002, TM-003 |
 | `packages/create-cumulus/src/templates.ts` | Template allow-list and generated package surface | TM-006 |
 | `packages/create-cumulus/templates/integration` | Hosted/self-hosted inherited webhook routes | TM-001, TM-005 |
+| `packages/create-cumulus/templates/cumulus-db-app` | Generated Cumulus DB HTTP proxy and UI | TM-003, TM-007 |
+| `packages/create-cumulus/templates/cumulus-db` | Vendored local AGPL Cumulus DB service | TM-006, TM-007 |
 
 ## Quality Check
 

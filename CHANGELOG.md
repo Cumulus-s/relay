@@ -4,6 +4,28 @@ All notable changes to Relay. Format: [Keep a Changelog](https://keepachangelog.
 
 ## [Unreleased]
 
+## [create-cumulus@0.3.0] — 2026-05-12
+
+### Added
+
+- `create-cumulus --cumulus-db cloud|local|both`.
+- Cumulus DB support for generated `full`, `inner`, and `agent-auth`
+  projects. They default to `both`.
+- Local Cumulus DB template files under generated `apps/cumulus-db`, including
+  the AGPL `LICENSE`, `NOTICE`, tests, and smoke script.
+- Generated Cumulus DB scripts: `cumulus-db:build`, `cumulus-db:start`,
+  `cumulus-db:test`, `cumulus-db:smoke`, and `cumulus-db:workspace`.
+- Generated Cumulus DB UI at `/me/database` for `full` and `inner`, and
+  `/database` for `agent-auth`.
+
+### Changed
+
+- Generated public app code talks to Cumulus DB over HTTP/token APIs only.
+- `outer` defaults to hosted Cumulus DB and does not include local DB files
+  unless explicitly requested.
+- Generated projects that include local Cumulus DB default to AGPL-3.0-only.
+  Small hosted `agent-auth --cumulus-db cloud` projects remain MIT.
+
 ## [0.3.0] — 2026-05-12
 
 ### Added

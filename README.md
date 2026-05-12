@@ -22,6 +22,9 @@ npx create-cumulus@latest my-acme
 
 # Equivalent npm create shorthand
 npm create cumulus@latest my-acme
+
+# Keep the smallest agent-auth app on hosted Cumulus DB
+npx create-cumulus@latest my-acme --template agent-auth --cumulus-db cloud
 ```
 
 Templates:
@@ -39,6 +42,17 @@ Agent auth modes:
 | --- | --- |
 | `hosted` | Generated app connects to hosted Cumulus Cloud. |
 | `self-hosted` | Generated app includes a local Relay-style API/MCP starter. |
+
+Generated `full`, `inner`, and `agent-auth` projects also support Cumulus DB.
+They default to `--cumulus-db both`, which includes hosted provisioning docs
+and the local AGPL Cumulus DB service. `outer` defaults to `--cumulus-db cloud`
+and stays small.
+
+Cumulus DB is separate from the Relay Postgres database. Relay Postgres uses
+`DATABASE_URL` for users, sessions, tenants, signup jobs, and API-key records.
+Cumulus DB stores agent workspace records through a hosted or local HTTP API.
+Generated app code talks to Cumulus DB through token-based HTTP routes and does
+not import the local AGPL database service.
 
 `my-acme` is a placeholder. If you provide `--company "Acme Inc"`, the
 generated folder and package name are derived from the company name. Use any
@@ -167,8 +181,9 @@ package-level license files.
 - Full Cumulus Relay app and server: **GNU AGPLv3**. See [LICENSE](LICENSE).
 - Creator, SDK helpers, examples, and small hosted SDK-only templates where
   separately marked: **MIT**.
-- Generated full, inner, and self-hosted templates include the Relay app/server
-  and default to **AGPL-3.0-only**.
+- Generated full, inner, self-hosted, and local Cumulus DB templates include
+  AGPL services and default to **AGPL-3.0-only**.
+- Small hosted `agent-auth --cumulus-db cloud` projects remain **MIT**.
 - Cumulus and Relay names, marks, and logos are governed by
   [TRADEMARKS.md](TRADEMARKS.md).
 - Commercial licensing is available. See [COMMERCIAL.md](COMMERCIAL.md).
